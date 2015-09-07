@@ -1,0 +1,56 @@
+cd ~/tools_github
+cd hive-json-schema/ 
+java -jar target/json-hive-schema-1.0-jar-with-dependencies.jar /media/sf_tim_bigdata/BARI/bari_grid_PROC.json GRIDBARI_NEW
+
+Usually, at each start of Hive we need to:
+
+ADD JAR hdfs://localhost/tmp/json-serde-1.3.6-SNAPSHOT-jar-with-dependencies.jar;     
+ADD JAR hdfs://localhost/tmp/esri-geometry-api-1.2.1.jar;
+ADD JAR hdfs://localhost/tmp/spatial-sdk-hive-1.1.1-SNAPSHOT.jar;
+ADD JAR hdfs://localhost/tmp/spatial-sdk-json-1.1.1-SNAPSHOT.jar;   
+create temporary function ST_Area as 'com.esri.hadoop.hive.ST_Area';
+create temporary function ST_GeomFromGeoJson as 'com.esri.hadoop.hive.ST_GeomFromGeoJson';
+create temporary function ST_AsText as 'com.esri.hadoop.hive.ST_AsText';
+create temporary function ST_GeomFromText as 'com.esri.hadoop.hive.ST_GeomFromText';
+
+(and possibly some others from https://github.com/Esri/spatial-framework-for-hadoop/blob/master/hive/function-ddl.sql)
+
+We verify the jars:
+
+hive> list jars;
+/tmp/df4c87c6-3fcc-4ea8-9c75-b07bd5566a3a_resources/json-serde-1.3.6-SNAPSHOT-jar-with-dependencies.jar
+/tmp/df4c87c6-3fcc-4ea8-9c75-b07bd5566a3a_resources/spatial-sdk-json-1.1.1-SNAPSHOT.jar
+/tmp/df4c87c6-3fcc-4ea8-9c75-b07bd5566a3a_resources/spatial-sdk-hive-1.1.1-SNAPSHOT.jar
+/tmp/df4c87c6-3fcc-4ea8-9c75-b07bd5566a3a_resources/esri-geometry-api-1.2.1.jar
+hive> 
+
+We create the table for grid data of a city, e.g.
+
+hive> CREATE TABLE GRIDBARI_NEW (
+    >   geom string,
+    >   gridid string)
+    > ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe';
+OK
+Time taken: 1.915 seconds
+
+hive> describe extended gridbari_new; 
+OK
+geom                	string              	from deserializer   
+gridid              	string              	from deserializer   
+	 	 
+Detailed Table Information	Table(tableName:gridbari_new, dbName:default, owner:oracle, createTime:1441660963, lastAccessTime:0, retention:0, sd:StorageDescriptor(cols:[FieldSchema(name:geom, type:string, comment:null), FieldSchema(name:gridid, type:string, comment:null)], location:hdfs://bigdatalite.localdomain:8020/user/hive/warehouse/gridbari_new, inputFormat:org.apache.hadoop.mapred.TextInputFormat, outputFormat:org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat, compressed:false, numBuckets:-1, serdeInfo:SerDeInfo(name:null, serializationLib:org.openx.data.jsonserde.JsonSerDe, parameters:{serialization.format=1}), bucketCols:[], sortCols:[], parameters:{}, skewedInfo:SkewedInfo(skewedColNames:[], skewedColValues:[], skewedColValueLocationMaps:{}), storedAsSubDirectories:false), partitionKeys:[], parameters:{transient_lastDdlTime=1441660963}, viewOriginalText:null, viewExpandedText:null, tableType:MANAGED_TABLE)	
+Time taken: 0.721 seconds, Fetched: 4 row(s)
+
+Next we bulk insert the data into the newly created table:
+
+hive> LOAD DATA LOCAL INPATH '/media/sf_tim_bigdata/BARI/bari_grid_PROC.json' OVERWRITE INTO TABLE GRIDBARI_NEW;
+Copying data from file:/media/sf_tim_bigdata/BARI/bari_grid_PROC.json
+Copying file: file:/media/sf_tim_bigdata/BARI/bari_grid_PROC.json
+Loading data to table default.gridbari_new
+OK
+Time taken: 0.819 seconds
+
+
+
+
+
